@@ -1,0 +1,146 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "CloudFormation template for creating an EMR cluster from scratch",
+  "Parameters": {
+    "AdditionalMasterSecurityGroups": {
+      "Default": "sg-b2cf85d6,sg-d74453b3",
+      "Type": "CommaDelimitedList"
+    },
+    "AdditionalSlaveSecurityGroups": {
+      "Default": "sg-b2cf85d6,sg-d74453b3",
+      "Type": "CommaDelimitedList"
+    },
+    "ClusterName": {
+      "Default": "my-test-cluster",
+      "Type": "String"
+    },
+    "CoreInstanceBidPrice": {
+      "Default": 0.09,
+      "Type": "Number"
+    },
+    "CoreInstanceCount": {
+      "Default": 3,
+      "Type": "Number"
+    },
+    "CoreInstanceType": {
+      "Default": "m3.2xlarge",
+      "Type": "String"
+    },
+    "LogS3Bucket": {
+      "Default": "datawithoutborders",
+      "Type": "String"
+    },
+    "NotebookS3Bucket": {
+      "Default": "datawithoutborders",
+      "Type": "String"
+    },
+    "ZeppelinSparkSubmitOptions": {
+      "Default": "\"--repositories http://repo.npa.institute.s3-website-eu-west-1.amazonaws.com/release --packages ml.dmlc:xgboost4j-spark:0.5\"",
+      "Type": "String"
+    }
+  },
+  "Resources": {
+    "EmrCluster": {
+      "Properties": {
+        "Applications": [
+          {
+            "Name": "Spark"
+          },
+          {
+            "Name": "Zeppelin"
+          }
+        ],
+        "Configurations": [
+          {
+            "Classification": "spark",
+            "ConfigurationProperties": {
+              "maximizeResourceAllocation": "true"
+            }
+          }
+        ],
+        "Instances": {
+          "AdditionalMasterSecurityGroups": {
+            "Ref": "AdditionalMasterSecurityGroups"
+          },
+          "AdditionalSlaveSecurityGroups": {
+            "Ref": "AdditionalSlaveSecurityGroups"
+          },
+          "CoreInstanceGroup": {
+            "BidPrice": {
+              "Ref": "CoreInstanceBidPrice"
+            },
+            "InstanceCount": {
+              "Ref": "CoreInstanceCount"
+            },
+            "InstanceType": {
+              "Ref": "CoreInstanceType"
+            },
+            "Market": "SPOT",
+            "Name": "Core"
+          },
+          "Ec2KeyName": "ansible_ec2",
+          "MasterInstanceGroup": {
+            "Configurations": [
+              {
+                "Classification": "zeppelin-env",
+                "Configurations": [
+                  {
+                    "Classification": "export",
+                    "ConfigurationProperties": {
+                      "SPARK_SUBMIT_OPTIONS": {
+                        "Ref": "ZeppelinSparkSubmitOptions"
+                      },
+                      "ZEPPELIN_NOTEBOOK_S3_BUCKET": {
+                        "Ref": "NotebookS3Bucket"
+                      },
+                      "ZEPPELIN_NOTEBOOK_S3_USER": "zeppelin",
+                      "ZEPPELIN_NOTEBOOK_STORAGE": "org.apache.zeppelin.notebook.repo.S3NotebookRepo"
+                    }
+                  }
+                ]
+              }
+            ],
+            "InstanceCount": 1,
+            "InstanceType": "m1.large",
+            "Market": "ON_DEMAND",
+            "Name": "Master"
+          }
+        },
+        "JobFlowRole": "EMR_EC2_DefaultRole",
+        "LogUri": {
+          "Fn::Join": [
+            "/",
+            [
+              "s3:/",
+              {
+                "Ref": "LogS3Bucket"
+              },
+              "logs",
+              {
+                "Ref": "ClusterName"
+              }
+            ]
+          ]
+        },
+        "Name": {
+          "Ref": "ClusterName"
+        },
+        "ReleaseLabel": "emr-5.0.0",
+        "ServiceRole": "EMR_DefaultRole",
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": "EMR"
+          },
+          {
+            "Key": "Cluster",
+            "Value": {
+              "Ref": "ClusterName"
+            }
+          }
+        ]
+      },
+      "Type": "AWS::EMR::Cluster"
+    }
+  }
+}
